@@ -172,8 +172,6 @@
         window.onload = async function() {
             const countElement = document.getElementById('totalCount');
             const countAppPromise = client.from('khach_hang_cai_app').select('*', { count: 'exact', head: true });
-            
-            // ĐÃ SỬA: Đếm tổng từ bảng tra_cuu mới
             const countTongPromise = client.from('tra_cuu').select('*', { count: 'exact', head: true });
             
             const [resApp, resTong] = await Promise.all([countAppPromise, countTongPromise]);
@@ -228,149 +226,19 @@
 
             resultBox.innerHTML = `<p style="color: #666; text-align: center; font-weight: bold;">⏳ Đang truy xuất đối chiếu dữ liệu...</p>`;
 
-            // ĐÃ SỬA: Quét dữ liệu từ bảng tra_cuu
-            const queryTong = client.from('tra_cuu').select('*')
-                .or(`MA_KHANG.ilike.%${searchPattern}%,TEN_KHANG.ilike.%${searchPattern}%`).limit(20);
-            
-            const queryApp = client.from('khach_hang_cai_app').select('*')
-                .or(`"Mã khách hàng".ilike.%${searchPattern}%,"Tên khách hàng".ilike.%${searchPattern}%`).limit(20);
+            // BƯỚC 1: Quét dữ liệu 100% từ bảng tra_cuu
+            const { data: traCuuData, error: traCuuError } = await client
+                .from('tra_cuu')
+                .select('*')
+                .or(`MA_KHANG.ilike.%${searchPattern}%,TEN_KHANG.ilike.%${searchPattern}%`)
+                .limit(11);
 
-            const [resTong, resApp] = await Promise.all([queryTong, queryApp]);
-
-            if (resTong.error && resApp.error) {
+            if (traCuuError) {
                 resultBox.innerHTML = `<div class="card"><div class="card-body"><p style="color: red; margin:0;">Lỗi kết nối máy chủ</p></div></div>`;
                 return;
             }
 
-            const combinedMap = new Map();
-
-            // 1. Nhúng dữ liệu nền từ bảng tra_cuu
-            if (resTong.data) {
-                resTong.data.forEach(item => {
-                    combinedMap.set(item['MA_KHANG'], {
-                        'Mã khách hàng': item['MA_KHANG'],
-                        'Tên khách hàng': item['TEN_KHANG'],
-                        'Số điện thoại': item['DTHOAI'] || '',
-                        'Địa chỉ': item['DCHI_KH'] || '',
-                        'Tên trạm': item['TEN_TRAM'] || '',
-                        'Số cột': item['SO_COT'] || '',
-                        'Ấp': item['Ấp'] || '',
-                        'Xã': item['Xã'] || '',
-                        'Trưởng ấp': item['Trưởng ấp'] || '',
-                        'Tình Trạng': 'Chưa cài App',
-                        'Ngày liên kết lần đầu': '',
-                        'Ngày liên kết gần nhất': ''
-                    });
-                });
-            }
-
-            // 2. Nhúng dữ liệu từ bảng khach_hang_cai_app đè lên
-            if (resApp.data) {
-                resApp.data.forEach(item => {
-                    const exist = combinedMap.get(item['Mã khách hàng']) || {};
-                    combinedMap.set(item['Mã khách hàng'], {
-                        'Mã khách hàng': item['Mã khách hàng'],
-                        'Tên khách hàng': item['Tên khách hàng'] || exist['Tên khách hàng'] || '',
-                        'Số điện thoại': exist['Số điện thoại'] || '', 
-                        'Địa chỉ': exist['Địa chỉ'] || '',
-                        'Tên trạm': exist['Tên trạm'] || '',
-                        'Số cột': exist['Số cột'] || '',
-                        'Ấp': exist['Ấp'] || '',
-                        'Xã': exist['Xã'] || '',
-                        'Trưởng ấp': exist['Trưởng ấp'] || '',
-                        'Tình Trạng': item['Tình trạng'] || item['Tình Trạng'] || 'Đã cài App',
-                        'Ngày liên kết lần đầu': item['Ngày liên kết lần đầu'] || '',
-                        'Ngày liên kết gần nhất': item['Ngày liên kết gần nhất'] || ''
-                    });
-                });
-            }
-
-            const finalData = Array.from(combinedMap.values());
-
-            if (finalData.length > 0) {
-                const hasMore = finalData.length > 10;
-                const displayText = hasMore ? '> 10' : finalData.length;
-                const displayData = hasMore ? finalData.slice(0, 10) : finalData;
-
-                let html = `
-                    <p style="color: #28a745; font-weight: bold; margin-bottom: 15px;">
-                        ✔ Tìm thấy ${displayText} kết quả <span style="font-weight: normal; color: #d32f2f; font-style: italic; font-size: 14px;">(Hiện tối đa 10)</span>:
-                    </p>
-                    <div class="card-container">
-                `;
-                
-                displayData.forEach((thongTin, index) => {
-                    let rawStatus = thongTin['Tình Trạng'] || '';
-                    const isDaCai = rawStatus.toLowerCase().includes('đã cài');
-                    rawStatus = isDaCai ? 'Đã cài App' : 'Chưa cài App';
-                    const statusColor = isDaCai ? '#28a745' : '#757575';
-
-                    // Xây dựng thẻ HTML hiển thị thông tin chung
-                    let cardBodyHtml = `
-                        <div class="data-row">
-                            <span class="data-label">Mã KH:</span>
-                            <span class="data-value text-blue font-bold">${highlightText(thongTin['Mã khách hàng'], safeKeyword)}</span>
-                        </div>
-                        <div class="data-row">
-                            <span class="data-label">Tên KH:</span>
-                            <span class="data-value font-bold">${highlightText(thongTin['Tên khách hàng'], safeKeyword)}</span>
-                        </div>
-                        <div class="data-row">
-                            <span class="data-label">Số ĐT:</span>
-                            <span class="data-value font-bold">${cheSoDienThoai(thongTin['Số điện thoại'])}</span>
-                        </div>
-                        <div class="data-row">
-                            <span class="data-label">Địa chỉ:</span>
-                            <span class="data-value">${thongTin['Địa chỉ']}</span>
-                        </div>
-                    `;
-
-                    // Hiển thị phần thông tin linh hoạt dựa vào trạng thái App
-                    if (isDaCai) {
-                        cardBodyHtml += `
-                            <div class="data-row">
-                                <span class="data-label">Ngày LK đầu:</span>
-                                <span class="data-value">${thongTin['Ngày liên kết lần đầu']}</span>
-                            </div>
-                            <div class="data-row">
-                                <span class="data-label">Ngày LK gần<br>nhất:</span>
-                                <span class="data-value">${thongTin['Ngày liên kết gần nhất']}</span>
-                            </div>
-                        `;
-                    } else {
-                        cardBodyHtml += `
-                            <div class="data-row">
-                                <span class="data-label">Tên trạm:</span>
-                                <span class="data-value">${thongTin['Tên trạm']}</span>
-                            </div>
-                            <div class="data-row">
-                                <span class="data-label">Số cột:</span>
-                                <span class="data-value">${thongTin['Số cột']}</span>
-                            </div>
-                            <div class="data-row">
-                                <span class="data-label">Khu vực:</span>
-                                <span class="data-value">${thongTin['Ấp']}, ${thongTin['Xã']}<br>
-                                <small style="color: #666;">(Trưởng ấp: <strong>${thongTin['Trưởng ấp']}</strong>)</small></span>
-                            </div>
-                        `;
-                    }
-
-                    html += `
-                        <div class="card">
-                            <div class="card-header">
-                                <span class="stt-badge">STT: ${index + 1}</span>
-                                <span class="status-badge" style="color: ${statusColor};">${rawStatus}</span>
-                            </div>
-                            <div class="card-body">
-                                ${cardBodyHtml}
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                html += `</div>`;
-                resultBox.innerHTML = html;
-            } else {
+            if (!traCuuData || traCuuData.length === 0) {
                 resultBox.innerHTML = `
                     <div class="card" style="background-color: #ffebee; border-color: #ffcdd2;">
                         <div class="card-body">
@@ -378,7 +246,106 @@
                         </div>
                     </div>
                 `;
+                return;
             }
+
+            // BƯỚC 2: Trích xuất danh sách Mã KH để đối chiếu với bảng App
+            const maKhangList = traCuuData.map(item => item['MA_KHANG']);
+
+            const { data: appData } = await client
+                .from('khach_hang_cai_app')
+                .select('*')
+                .in('Mã khách hàng', maKhangList);
+
+            const appMap = new Map();
+            if (appData) {
+                appData.forEach(item => {
+                    appMap.set(item['Mã khách hàng'], item);
+                });
+            }
+
+            // BƯỚC 3: Xử lý hiển thị
+            const hasMore = traCuuData.length > 10;
+            const displayText = hasMore ? '> 10' : traCuuData.length;
+            const displayData = hasMore ? traCuuData.slice(0, 10) : traCuuData;
+
+            let html = `
+                <p style="color: #28a745; font-weight: bold; margin-bottom: 15px;">
+                    ✔ Tìm thấy ${displayText} kết quả <span style="font-weight: normal; color: #d32f2f; font-style: italic; font-size: 14px;">(Hiện tối đa 10)</span>:
+                </p>
+                <div class="card-container">
+            `;
+            
+            displayData.forEach((item, index) => {
+                // Kiểm tra xem khách hàng này có trong bảng App không
+                const appInfo = appMap.get(item['MA_KHANG']);
+                const isDaCai = !!appInfo; // Nếu tìm thấy (true) -> Đã cài App
+                
+                const rawStatus = isDaCai ? 'Đã cài App' : 'Chưa cài App';
+                const statusColor = isDaCai ? '#28a745' : '#757575';
+
+                // Dữ liệu mặc định luôn lấy từ bảng tra_cuu cho tất cả khách hàng
+                let cardBodyHtml = `
+                    <div class="data-row">
+                        <span class="data-label">Mã KH:</span>
+                        <span class="data-value text-blue font-bold">${highlightText(item['MA_KHANG'], safeKeyword)}</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Tên KH:</span>
+                        <span class="data-value font-bold">${highlightText(item['TEN_KHANG'], safeKeyword)}</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Số ĐT:</span>
+                        <span class="data-value font-bold">${cheSoDienThoai(item['DTHOAI'])}</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Địa chỉ:</span>
+                        <span class="data-value">${item['DCHI_KH'] || ''}</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Tên trạm:</span>
+                        <span class="data-value">${item['TEN_TRAM'] || ''}</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Số cột:</span>
+                        <span class="data-value">${item['SO_COT'] || ''}</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Khu vực:</span>
+                        <span class="data-value">${item['Ấp'] || ''}, ${item['Xã'] || ''}<br>
+                        <small style="color: #666;">(Trưởng ấp: <strong>${item['Trưởng ấp'] || ''}</strong>)</small></span>
+                    </div>
+                `;
+
+                // Nếu đã cài App, hiển thị thêm ngày tháng liên kết ở cuối thẻ
+                if (isDaCai) {
+                    cardBodyHtml += `
+                        <div class="data-row">
+                            <span class="data-label">Ngày LK đầu:</span>
+                            <span class="data-value">${appInfo['Ngày liên kết lần đầu'] || ''}</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="data-label">Ngày LK gần<br>nhất:</span>
+                            <span class="data-value">${appInfo['Ngày liên kết gần nhất'] || ''}</span>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="stt-badge">STT: ${index + 1}</span>
+                            <span class="status-badge" style="color: ${statusColor};">${rawStatus}</span>
+                        </div>
+                        <div class="card-body">
+                            ${cardBodyHtml}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+            resultBox.innerHTML = html;
         }
     </script>
 </body>
