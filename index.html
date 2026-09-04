@@ -177,20 +177,11 @@
             const countElement = document.getElementById('totalCount');
             const updateTimeElement = document.getElementById('updateTime');
 
+            // 1. Load nhanh thông số đếm để hiển thị trước
             const countAppPromise = client.from('khach_hang_cai_app').select('*', { count: 'exact', head: true });
             const countTongPromise = client.from('tra_cuu').select('*', { count: 'exact', head: true });
-                
-            // ĐÃ SỬA LỖI: Dùng select('*') để tránh lỗi khoảng trắng tên cột và lọc các dòng bị trống
-            const latestDatePromise = client.from('khach_hang_cai_app')
-                .select('*')
-                .not('Ngày liên kết lần đầu', 'is', null)
-                .neq('Ngày liên kết lần đầu', '')
-                .order('Ngày liên kết lần đầu', { ascending: false })
-                .limit(1);
             
-            const [resApp, resTong, resLatest] = await Promise.all([
-                countAppPromise, countTongPromise, latestDatePromise
-            ]);
+            const [resApp, resTong] = await Promise.all([countAppPromise, countTongPromise]);
 
             if (resApp.error) {
                 countElement.innerHTML = `<span style="color: red;">(Lỗi tải dữ liệu)</span>`;
@@ -205,15 +196,52 @@
                 countElement.innerHTML = text;
             }
 
-            // Ghi dữ liệu thời gian ra màn hình
-            if (resLatest.data && resLatest.data.length > 0) {
-                const timeStr = resLatest.data[0]['Ngày liên kết lần đầu'];
-                updateTimeElement.innerHTML = `(Đã cập nhật đến: ${timeStr})`;
-            } else {
+            // 2. Chạy ngầm vòng lặp quét tìm ngày mới nhất chuẩn xác bằng toán học
+            try {
+                let maxTime = 0;
+                let latestStr = "";
+                let from = 0;
+                let fetchMore = true;
+
+                while (fetchMore) {
+                    const { data } = await client.from('khach_hang_cai_app')
+                        .select('Ngày liên kết lần đầu')
+                        .not('Ngày liên kết lần đầu', 'is', null)
+                        .neq('Ngày liên kết lần đầu', '')
+                        .range(from, from + 999);
+
+                    if (data && data.length > 0) {
+                        data.forEach(item => {
+                            const dateStr = item['Ngày liên kết lần đầu'];
+                            if (dateStr) {
+                                const parts = dateStr.split(' ');
+                                if (parts.length === 2) {
+                                    const [dd, mm, yy] = parts[0].split('/');
+                                    const [hh, min, ss] = parts[1].split(':');
+                                    // Chuyển đổi sang mốc thời gian thực (Timestamp) để so sánh
+                                    const ts = new Date(yy, mm - 1, dd, hh, min, ss).getTime();
+                                    if (ts > maxTime) {
+                                        maxTime = ts;
+                                        latestStr = dateStr;
+                                    }
+                                }
+                            }
+                        });
+                        from += 1000;
+                    } else {
+                        fetchMore = false;
+                    }
+                }
+                
+                if (latestStr !== "") {
+                    updateTimeElement.innerHTML = `(Đã cập nhật đến: ${latestStr})`;
+                } else {
+                    updateTimeElement.innerHTML = ``;
+                }
+            } catch (e) {
                 updateTimeElement.innerHTML = ``;
             }
         };
-
         function handleKeyPress(e) {
             if (e.key === 'Enter') fetchData();
         }
