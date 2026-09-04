@@ -296,7 +296,8 @@
                     </div>
                     <div class="data-row">
                         <span class="data-label">Số ĐT:</span>
-                        <span class="data-value font-bold">${cheSoDienThoai(item['DTHOAI'])}</span>
+                        <!-- ĐÃ SỬA: Gỡ bỏ hàm cheSoDienThoai, lấy thẳng dữ liệu gốc từ bảng tra_cuu -->
+                        <span class="data-value font-bold">${item['DTHOAI'] || ''}</span>
                     </div>
                     <div class="data-row">
                         <span class="data-label">Địa chỉ:</span>
