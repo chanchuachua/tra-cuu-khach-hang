@@ -177,7 +177,7 @@
             const countElement = document.getElementById('totalCount');
             const updateTimeElement = document.getElementById('updateTime');
 
-            // 1. Load nhanh thông số đếm để hiển thị trước
+            // Chỉ tải thông số đếm để web mở cực nhanh
             const countAppPromise = client.from('khach_hang_cai_app').select('*', { count: 'exact', head: true });
             const countTongPromise = client.from('tra_cuu').select('*', { count: 'exact', head: true });
             
@@ -196,52 +196,15 @@
                 countElement.innerHTML = text;
             }
 
-            // 2. Chạy ngầm vòng lặp quét tìm ngày mới nhất chuẩn xác bằng toán học
-            try {
-                let maxTime = 0;
-                let latestStr = "";
-                let from = 0;
-                let fetchMore = true;
-
-                while (fetchMore) {
-                    const { data } = await client.from('khach_hang_cai_app')
-                        .select('Ngày liên kết lần đầu')
-                        .not('Ngày liên kết lần đầu', 'is', null)
-                        .neq('Ngày liên kết lần đầu', '')
-                        .range(from, from + 999);
-
-                    if (data && data.length > 0) {
-                        data.forEach(item => {
-                            const dateStr = item['Ngày liên kết lần đầu'];
-                            if (dateStr) {
-                                const parts = dateStr.split(' ');
-                                if (parts.length === 2) {
-                                    const [dd, mm, yy] = parts[0].split('/');
-                                    const [hh, min, ss] = parts[1].split(':');
-                                    // Chuyển đổi sang mốc thời gian thực (Timestamp) để so sánh
-                                    const ts = new Date(yy, mm - 1, dd, hh, min, ss).getTime();
-                                    if (ts > maxTime) {
-                                        maxTime = ts;
-                                        latestStr = dateStr;
-                                    }
-                                }
-                            }
-                        });
-                        from += 1000;
-                    } else {
-                        fetchMore = false;
-                    }
-                }
-                
-                if (latestStr !== "") {
-                    updateTimeElement.innerHTML = `(Đã cập nhật đến: ${latestStr})`;
-                } else {
-                    updateTimeElement.innerHTML = ``;
-                }
-            } catch (e) {
-                updateTimeElement.innerHTML = ``;
-            }
+            // Tự động tạo mốc 07:00:00 của ngày hiện tại
+            const today = new Date();
+            const dd = String(today.getDate()).padStart(2, '0');
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const yyyy = today.getFullYear();
+            
+            updateTimeElement.innerHTML = `(Đã cập nhật đến: 07:00:00 ${dd}/${mm}/${yyyy})`;
         };
+
         function handleKeyPress(e) {
             if (e.key === 'Enter') fetchData();
         }
