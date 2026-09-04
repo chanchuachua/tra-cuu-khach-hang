@@ -205,13 +205,6 @@
             return resultString;
         }
 
-        function cheSoDienThoai(soDT) {
-            if (!soDT) return '';
-            let s = String(soDT).trim();
-            if (s.length <= 5) return s; 
-            return s.substring(0, 2) + 'xxxxx' + s.substring(s.length - 3);
-        }
-
         async function fetchData() {
             const rawKeyword = document.getElementById('searchInput').value.trim();
             const resultBox = document.getElementById('resultArea');
