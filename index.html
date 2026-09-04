@@ -177,15 +177,14 @@
             const countElement = document.getElementById('totalCount');
             const updateTimeElement = document.getElementById('updateTime');
 
-            const countAppPromise = client.from('khach_hang_cai_app')
-                .select('*', { count: 'exact', head: true });
+            const countAppPromise = client.from('khach_hang_cai_app').select('*', { count: 'exact', head: true });
+            const countTongPromise = client.from('tra_cuu').select('*', { count: 'exact', head: true });
                 
-            const countTongPromise = client.from('tra_cuu')
-                .select('*', { count: 'exact', head: true });
-                
-            // Truy vấn lấy ngày liên kết mới nhất
+            // ĐÃ SỬA LỖI: Dùng select('*') để tránh lỗi khoảng trắng tên cột và lọc các dòng bị trống
             const latestDatePromise = client.from('khach_hang_cai_app')
-                .select('Ngày liên kết lần đầu')
+                .select('*')
+                .not('Ngày liên kết lần đầu', 'is', null)
+                .neq('Ngày liên kết lần đầu', '')
                 .order('Ngày liên kết lần đầu', { ascending: false })
                 .limit(1);
             
@@ -194,15 +193,14 @@
             ]);
 
             if (resApp.error) {
-                countElement.innerHTML = `<span style="color: red;">(Lỗi tải)</span>`;
+                countElement.innerHTML = `<span style="color: red;">(Lỗi tải dữ liệu)</span>`;
             } else {
                 const daCai = resApp.count || 0;
                 let text = `(Đã cài App: ${daCai.toLocaleString('vi-VN')})`;
                 if (!resTong.error && resTong.count > 0) {
                     const tongKH = resTong.count;
                     const tyLe = ((daCai / tongKH) * 100).toFixed(2);
-                    text = `(Tổng KH: ${tongKH.toLocaleString('vi-VN')} | ` +
-                           `Đã cài App: ${daCai.toLocaleString('vi-VN')} - ${tyLe}%)`;
+                    text = `(Tổng KH: ${tongKH.toLocaleString('vi-VN')} | Đã cài App: ${daCai.toLocaleString('vi-VN')} - ${tyLe}%)`;
                 }
                 countElement.innerHTML = text;
             }
