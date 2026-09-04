@@ -156,6 +156,10 @@
         <p id="totalCount" style="text-align: center; color: #333; font-size: 14px; margin-top: 0; margin-bottom: 25px; font-style: italic;">
             Đang tải dữ liệu đếm...
         </p>
+        <p id="updateTime" style="text-align: center; color: #666; font-size: 13px; 
+        margin-top: -20px; margin-bottom: 25px; font-style: italic;">
+            (Đã cập nhật đến: Đang tải...)
+        </p>
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="Nhập mã hoặc tên..." onkeypress="handleKeyPress(event)">
             <button onclick="fetchData()">Tra cứu</button>
@@ -171,22 +175,44 @@
 
         window.onload = async function() {
             const countElement = document.getElementById('totalCount');
-            const countAppPromise = client.from('khach_hang_cai_app').select('*', { count: 'exact', head: true });
-            const countTongPromise = client.from('tra_cuu').select('*', { count: 'exact', head: true });
+            const updateTimeElement = document.getElementById('updateTime');
+
+            const countAppPromise = client.from('khach_hang_cai_app')
+                .select('*', { count: 'exact', head: true });
+                
+            const countTongPromise = client.from('tra_cuu')
+                .select('*', { count: 'exact', head: true });
+                
+            // Truy vấn lấy ngày liên kết mới nhất
+            const latestDatePromise = client.from('khach_hang_cai_app')
+                .select('Ngày liên kết lần đầu')
+                .order('Ngày liên kết lần đầu', { ascending: false })
+                .limit(1);
             
-            const [resApp, resTong] = await Promise.all([countAppPromise, countTongPromise]);
+            const [resApp, resTong, resLatest] = await Promise.all([
+                countAppPromise, countTongPromise, latestDatePromise
+            ]);
 
             if (resApp.error) {
-                countElement.innerHTML = `<span style="color: red;">(Lỗi tải dữ liệu)</span>`;
+                countElement.innerHTML = `<span style="color: red;">(Lỗi tải)</span>`;
             } else {
                 const daCai = resApp.count || 0;
                 let text = `(Đã cài App: ${daCai.toLocaleString('vi-VN')})`;
                 if (!resTong.error && resTong.count > 0) {
                     const tongKH = resTong.count;
                     const tyLe = ((daCai / tongKH) * 100).toFixed(2);
-                    text = `(Tổng KH: ${tongKH.toLocaleString('vi-VN')} | Đã cài App: ${daCai.toLocaleString('vi-VN')} - ${tyLe}%)`;
+                    text = `(Tổng KH: ${tongKH.toLocaleString('vi-VN')} | ` +
+                           `Đã cài App: ${daCai.toLocaleString('vi-VN')} - ${tyLe}%)`;
                 }
                 countElement.innerHTML = text;
+            }
+
+            // Ghi dữ liệu thời gian ra màn hình
+            if (resLatest.data && resLatest.data.length > 0) {
+                const timeStr = resLatest.data[0]['Ngày liên kết lần đầu'];
+                updateTimeElement.innerHTML = `(Đã cập nhật đến: ${timeStr})`;
+            } else {
+                updateTimeElement.innerHTML = ``;
             }
         };
 
