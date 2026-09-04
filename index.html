@@ -311,20 +311,6 @@
                     </div>
                 `;
 
-                // Nếu đã cài App, hiển thị thêm ngày tháng liên kết ở cuối thẻ
-                if (isDaCai) {
-                    cardBodyHtml += `
-                        <div class="data-row">
-                            <span class="data-label">Ngày LK đầu:</span>
-                            <span class="data-value">${appInfo['Ngày liên kết lần đầu'] || ''}</span>
-                        </div>
-                        <div class="data-row">
-                            <span class="data-label">Ngày LK gần<br>nhất:</span>
-                            <span class="data-value">${appInfo['Ngày liên kết gần nhất'] || ''}</span>
-                        </div>
-                    `;
-                }
-
                 html += `
                     <div class="card">
                         <div class="card-header">
