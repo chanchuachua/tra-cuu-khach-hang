@@ -34,7 +34,8 @@
         @media (min-width: 600px) {
             .search-box { flex-direction: row; } 
         }
-        input { 
+        /* ĐÃ SỬA: Chỉ áp dụng kiểu dáng lớn cho ô nhập văn bản */
+        input[type="text"] { 
             flex: 1; 
             padding: 14px 18px; 
             border: 2px solid #e0e0e0; 
@@ -43,7 +44,7 @@
             outline: none;
             transition: all 0.3s;
         }
-        input:focus { 
+        input[type="text"]:focus { 
             border-color: #1a73e8; 
             box-shadow: 0 0 8px rgba(26,115,232,0.2);
         }
@@ -61,6 +62,22 @@
         }
         button:hover { 
             background: #1557b0; 
+        }
+        /* THÊM MỚI: Định dạng cho nút check Tìm chính xác */
+        .exact-match-label {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 12px;
+            font-size: 14px;
+            color: #444;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .exact-match-label input {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            cursor: pointer;
         }
         #resultArea { margin-top: 25px; }
         .card-container {
@@ -139,15 +156,6 @@
         }
         .text-blue { color: #0056b3; }
         .font-bold { font-weight: bold; }
-        .watermark {
-            position: fixed;
-            bottom: 15px;
-            left: 15px;
-            font-size: 13px;
-            color: #999;
-            line-height: 1.5;
-            z-index: 1000;
-        }
     </style>
 </head>
 <body>
@@ -156,14 +164,20 @@
         <p id="totalCount" style="text-align: center; color: #333; font-size: 14px; margin-top: 0; margin-bottom: 25px; font-style: italic;">
             Đang tải dữ liệu đếm...
         </p>
-        <p id="updateTime" style="text-align: center; color: #666; font-size: 13px; 
-        margin-top: -20px; margin-bottom: 25px; font-style: italic;">
+        <p id="updateTime" style="text-align: center; color: #666; font-size: 13px; margin-top: -20px; margin-bottom: 25px; font-style: italic;">
             (Đã cập nhật đến: Đang tải...)
         </p>
+        
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="Nhập mã hoặc tên..." onkeypress="handleKeyPress(event)">
             <button onclick="fetchData()">Tra cứu</button>
         </div>
+        
+        <!-- THÊM MỚI: Nút chọn Tìm chính xác 100% -->
+        <label class="exact-match-label">
+            <input type="checkbox" id="exactMatch"> Tìm chính xác 100%
+        </label>
+        
         <div id="resultArea"></div>
     </div>
 
@@ -177,7 +191,6 @@
             const countElement = document.getElementById('totalCount');
             const updateTimeElement = document.getElementById('updateTime');
 
-            // Chỉ tải thông số đếm để web mở cực nhanh
             const countAppPromise = client.from('khach_hang_cai_app').select('*', { count: 'exact', head: true });
             const countTongPromise = client.from('tra_cuu').select('*', { count: 'exact', head: true });
             
@@ -196,7 +209,6 @@
                 countElement.innerHTML = text;
             }
 
-            // Tự động tạo mốc 07:00:00 của ngày hiện tại
             const today = new Date();
             const dd = String(today.getDate()).padStart(2, '0');
             const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -223,23 +235,30 @@
         async function fetchData() {
             const rawKeyword = document.getElementById('searchInput').value.trim();
             const resultBox = document.getElementById('resultArea');
+            
+            // ĐÃ SỬA: Lấy trạng thái của nút check tìm chính xác
+            const isExact = document.getElementById('exactMatch').checked;
 
             if (rawKeyword === "") {
                 alert("Vui lòng nhập thông tin để tra cứu!");
                 return;
             }
 
-            const safeKeyword = rawKeyword.replace(/,/g, ' ');
+            const safeKeyword = rawKeyword.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
             const searchPattern = safeKeyword.replace(/\s+/g, '%');
 
             resultBox.innerHTML = `<p style="color: #666; text-align: center; font-weight: bold;">⏳ Đang truy xuất đối chiếu dữ liệu...</p>`;
 
-            // BƯỚC 1: Quét dữ liệu 100% từ bảng tra_cuu
-            const { data: traCuuData, error: traCuuError } = await client
-                .from('tra_cuu')
-                .select('*')
-                .or(`MA_KHANG.ilike.%${searchPattern}%,TEN_KHANG.ilike.%${searchPattern}%`)
-                .limit(11);
+            let queryTraCuu = client.from('tra_cuu').select('*').limit(11);
+            
+            // ĐÃ SỬA: Phân nhánh tìm chính xác tuyệt đối hoặc tìm gần đúng
+            if (isExact) {
+                queryTraCuu = queryTraCuu.or(`MA_KHANG.ilike.${safeKeyword},TEN_KHANG.ilike.${safeKeyword}`);
+            } else {
+                queryTraCuu = queryTraCuu.or(`MA_KHANG.ilike.%${searchPattern}%,TEN_KHANG.ilike.%${searchPattern}%`);
+            }
+
+            const { data: traCuuData, error: traCuuError } = await queryTraCuu;
 
             if (traCuuError) {
                 resultBox.innerHTML = `<div class="card"><div class="card-body"><p style="color: red; margin:0;">Lỗi kết nối máy chủ</p></div></div>`;
@@ -257,7 +276,6 @@
                 return;
             }
 
-            // BƯỚC 2: Trích xuất danh sách Mã KH để đối chiếu với bảng App
             const maKhangList = traCuuData.map(item => item['MA_KHANG']);
 
             const { data: appData } = await client
@@ -272,7 +290,6 @@
                 });
             }
 
-            // BƯỚC 3: Xử lý hiển thị
             const hasMore = traCuuData.length > 10;
             const displayText = hasMore ? '> 10' : traCuuData.length;
             const displayData = hasMore ? traCuuData.slice(0, 10) : traCuuData;
@@ -285,14 +302,12 @@
             `;
             
             displayData.forEach((item, index) => {
-                // Kiểm tra xem khách hàng này có trong bảng App không
                 const appInfo = appMap.get(item['MA_KHANG']);
-                const isDaCai = !!appInfo; // Nếu tìm thấy (true) -> Đã cài App
+                const isDaCai = !!appInfo; 
                 
                 const rawStatus = isDaCai ? 'Đã cài App' : 'Chưa cài App';
                 const statusColor = isDaCai ? '#28a745' : '#757575';
 
-                // Dữ liệu mặc định luôn lấy từ bảng tra_cuu cho tất cả khách hàng
                 let cardBodyHtml = `
                     <div class="data-row">
                         <span class="data-label">Mã KH:</span>
@@ -304,7 +319,6 @@
                     </div>
                     <div class="data-row">
                         <span class="data-label">Số ĐT:</span>
-                        <!-- ĐÃ SỬA: Gỡ bỏ hàm cheSoDienThoai, lấy thẳng dữ liệu gốc từ bảng tra_cuu -->
                         <span class="data-value font-bold">${item['DTHOAI'] || ''}</span>
                     </div>
                     <div class="data-row">
