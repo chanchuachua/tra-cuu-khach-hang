@@ -217,22 +217,53 @@
         const supabaseKey = 'sb_publishable_-OA922t0e8G3z3hM0hwguQ_GIAaGmec';
         const client = supabase.createClient(supabaseUrl, supabaseKey);
 
-        // ĐÃ SỬA: Cấu hình sẵn dữ liệu Xã và Ấp (được trích xuất từ dữ liệu thực tế)
-        // Những xã có [] (ngoặc vuông rỗng) là những xã bạn có thể tự điền thêm tên Ấp sau này.
+        // ĐÃ SỬA: Dữ liệu Xã/Ấp được trích xuất chuẩn 100% từ bảng tra_cuu
         const locationData = {
-            "Thị trấn Lai Vung": [],
-            "Xã Lai Vung": ["An Bình", "An Hòa", "An Khương", "An Lạc", "An Lợi", "An Lợi A", "An Lợi B", "An Ninh", "An Phong", "An Phú", "An Thạnh", "An Định", "Bình An", "Hòa Lạc", "Tân An", "Tân Bình", "Tân Hưng", "Tân Khánh", "Tân Lộc", "Tân Lợi", "Tân Mỹ", "Tân Phú", "Tân Quí", "Tân Thuận", "Tân Thạnh", "Tân Định", "Tấn Khánh"],
-            "Xã Phong Hòa": ["Hòa Bình", "Hòa Khánh", "Hòa Ninh", "Hòa Tân", "Hòa Định 1", "Hòa Định 2", "Long An", "Thới Hòa", "Thới Mỹ", "Thới Mỹ 1", "Thới Mỹ 2", "Tân An", "Tân Bình", "Tân Hưng", "Tân Lợi", "Tân Mỹ", "Tân Phong", "Tân Phú", "Tân Quới", "Tân Thuận 1", "Tân Thạnh", "Tân Thới", "Định Mỹ", "Định Phong", "Định Phú", "Định Thành", "Định Tân"],
-            "Xã Định Hòa": [],
-            "Xã Định Yên": [],
-            "Xã Hòa Long": ["Hòa Bình", "Hòa Ninh", "Hòa Định", "Long An", "Long Bình", "Long Bửu", "Long Hòa", "Long Hưng", "Long Hưng 1", "Long Hưng 2", "Long Hội", "Long Khánh", "Long Khánh A", "Long Khánh B", "Long Phú", "Long Thuận", "Long Thành", "Long Thành A", "Long Thành B", "Long Định", "Thành Tấn", "Tân An", "Tân Hưng", "Tân Khánh", "Tân Mỹ", "Tân Phú", "Tân Thuận", "Tân Định", "Ấp 1", "Ấp 2", "Ấp 3", "Ấp 4", "Ấp 5"],
-            "Xã Hòa Thành": [],
-            "Xã Long Hậu": [],
-            "Xã Long Thắng": [],
-            "Xã Tân Dương": ["Hưng Lợi Tây", "Hậu Thành", "Tân Long", "Tân Lộc B", "Tân Thuận A"],
-            "Xã Tân Hòa": [],
-            "Xã Tân Phước": [],
-            "Xã Tân Thành": []
+            "Phường Cao Lãnh": [
+                "An Lạc"
+            ],
+            "Xã Hòa Long": [
+                "Hòa Bình", "Hòa Ninh", "Hòa Định", "Long An", "Long Bình", 
+                "Long Bửu", "Long Hòa", "Long Hưng", "Long Hưng 1", "Long Hưng 2", 
+                "Long Hội", "Long Khánh", "Long Khánh A", "Long Khánh B", 
+                "Long Phú", "Long Thuận", "Long Thành", "Long Thành A", 
+                "Long Thành B", "Long Định", "Thành Tấn", "Tân An", "Tân Hưng", 
+                "Tân Khánh", "Tân Mỹ", "Tân Phú", "Tân Thuận", "Tân Định", 
+                "Ấp 1", "Ấp 2", "Ấp 3", "Ấp 4", "Ấp 5"
+            ],
+            "Xã Lai Vung": [
+                "An Bình", "An Hòa", "An Khương", "An Lạc", "An Lợi", "An Lợi A", 
+                "An Lợi B", "An Ninh", "An Phong", "An Phú", "An Thạnh", "An Định", 
+                "Bình An", "Hòa Lạc", "Tân An", "Tân Bình", "Tân Hưng", "Tân Khánh", 
+                "Tân Lộc", "Tân Lợi", "Tân Mỹ", "Tân Phú", "Tân Quí", "Tân Thuận", 
+                "Tân Thạnh", "Tân Định", "Tấn Khánh"
+            ],
+            "Xã Lấp Vò": [
+                "An Hòa", "An Khượng", "An Lạc", "An Lợi A", "An Ninh", "An Phong", 
+                "Bình An", "Bình Hiệp A", "Bình Hòa", "Bình Thành 2", "Bình Thạnh 1", 
+                "Vĩnh Bình", "Vĩnh Lợi"
+            ],
+            "Xã Mỹ An Hưng": [
+                "An Bình", "An Hòa", "An Lợi A", "An Lợi B", "An Ninh", 
+                "Tân Hòa Đông"
+            ],
+            "Xã Phong Hòa": [
+                "Hòa Bình", "Hòa Khánh", "Hòa Ninh", "Hòa Tân", "Hòa Định 1", 
+                "Hòa Định 2", "Long An", "Thới Hòa", "Thới Mỹ", "Thới Mỹ 1", 
+                "Thới Mỹ 2", "Tân An", "Tân Bình", "Tân Hưng", 
+                "Tân Hưng (Tân Thuận PH cũ)", "Tân Lợi", "Tân Mỹ", "Tân Phong", 
+                "Tân Phú", "Tân Quới", "Tân Thuận 1", "Tân Thạnh", "Tân Thới", 
+                "Định Mỹ", "Định Phong", "Định Phú", "Định Thành", "Định Tân"
+            ],
+            "Xã Tân Dương": [
+                "Hưng Lợi Tây", "Hậu Thành", "Tân Long", "Tân Lộc B", "Tân Thuận A"
+            ],
+            "Xã Tân Khánh Trung": [
+                "An Bình", "An Phong", "Hậu Thành", "Vĩnh Bình"
+            ],
+            "Xã Tân Phú Trung": [
+                "Tân Lập", "Tân Lợi", "Tân Quới"
+            ]
         };
 
         // Hàm nạp danh sách Xã vào ô tùy chọn lúc mới mở trang
