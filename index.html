@@ -34,7 +34,6 @@
         @media (min-width: 600px) {
             .search-box { flex-direction: row; } 
         }
-        /* ĐÃ SỬA: Chỉ áp dụng kiểu dáng lớn cho ô nhập văn bản */
         input[type="text"] { 
             flex: 1; 
             padding: 14px 18px; 
@@ -63,11 +62,17 @@
         button:hover { 
             background: #1557b0; 
         }
-        /* THÊM MỚI: Định dạng cho nút check Tìm chính xác */
+        
+        .filter-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            margin-top: 15px;
+        }
         .exact-match-label {
             display: inline-flex;
             align-items: center;
-            margin-top: 12px;
             font-size: 14px;
             color: #444;
             cursor: pointer;
@@ -79,6 +84,21 @@
             margin-right: 8px;
             cursor: pointer;
         }
+        .filter-select {
+            padding: 10px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            flex: 1;
+            min-width: 140px;
+            background-color: #fff;
+            cursor: pointer;
+        }
+        .filter-select:focus {
+            border-color: #1a73e8;
+        }
+
         #resultArea { margin-top: 25px; }
         .card-container {
             display: flex;
@@ -173,10 +193,20 @@
             <button onclick="fetchData()">Tra cứu</button>
         </div>
         
-        <!-- THÊM MỚI: Nút chọn Tìm chính xác 100% -->
-        <label class="exact-match-label">
-            <input type="checkbox" id="exactMatch"> Tìm chính xác 100%
-        </label>
+        <div class="filter-group">
+            <label class="exact-match-label">
+                <input type="checkbox" id="exactMatch"> Tìm chính xác 100%
+            </label>
+            
+            <!-- ĐÃ SỬA: Danh sách Xã và Ấp giờ đây sẽ rỗng và được điều khiển bằng JavaScript -->
+            <select id="xaFilter" class="filter-select" onchange="handleXaChange()">
+                <option value="">-- Tất cả Xã --</option>
+            </select>
+
+            <select id="apFilter" class="filter-select">
+                <option value="">-- Tất cả Ấp --</option>
+            </select>
+        </div>
         
         <div id="resultArea"></div>
     </div>
@@ -187,7 +217,60 @@
         const supabaseKey = 'sb_publishable_-OA922t0e8G3z3hM0hwguQ_GIAaGmec';
         const client = supabase.createClient(supabaseUrl, supabaseKey);
 
+        // ĐÃ SỬA: Cấu hình sẵn dữ liệu Xã và Ấp (được trích xuất từ dữ liệu thực tế)
+        // Những xã có [] (ngoặc vuông rỗng) là những xã bạn có thể tự điền thêm tên Ấp sau này.
+        const locationData = {
+            "Thị trấn Lai Vung": [],
+            "Xã Lai Vung": ["An Bình", "An Hòa", "An Khương", "An Lạc", "An Lợi", "An Lợi A", "An Lợi B", "An Ninh", "An Phong", "An Phú", "An Thạnh", "An Định", "Bình An", "Hòa Lạc", "Tân An", "Tân Bình", "Tân Hưng", "Tân Khánh", "Tân Lộc", "Tân Lợi", "Tân Mỹ", "Tân Phú", "Tân Quí", "Tân Thuận", "Tân Thạnh", "Tân Định", "Tấn Khánh"],
+            "Xã Phong Hòa": ["Hòa Bình", "Hòa Khánh", "Hòa Ninh", "Hòa Tân", "Hòa Định 1", "Hòa Định 2", "Long An", "Thới Hòa", "Thới Mỹ", "Thới Mỹ 1", "Thới Mỹ 2", "Tân An", "Tân Bình", "Tân Hưng", "Tân Lợi", "Tân Mỹ", "Tân Phong", "Tân Phú", "Tân Quới", "Tân Thuận 1", "Tân Thạnh", "Tân Thới", "Định Mỹ", "Định Phong", "Định Phú", "Định Thành", "Định Tân"],
+            "Xã Định Hòa": [],
+            "Xã Định Yên": [],
+            "Xã Hòa Long": ["Hòa Bình", "Hòa Ninh", "Hòa Định", "Long An", "Long Bình", "Long Bửu", "Long Hòa", "Long Hưng", "Long Hưng 1", "Long Hưng 2", "Long Hội", "Long Khánh", "Long Khánh A", "Long Khánh B", "Long Phú", "Long Thuận", "Long Thành", "Long Thành A", "Long Thành B", "Long Định", "Thành Tấn", "Tân An", "Tân Hưng", "Tân Khánh", "Tân Mỹ", "Tân Phú", "Tân Thuận", "Tân Định", "Ấp 1", "Ấp 2", "Ấp 3", "Ấp 4", "Ấp 5"],
+            "Xã Hòa Thành": [],
+            "Xã Long Hậu": [],
+            "Xã Long Thắng": [],
+            "Xã Tân Dương": ["Hưng Lợi Tây", "Hậu Thành", "Tân Long", "Tân Lộc B", "Tân Thuận A"],
+            "Xã Tân Hòa": [],
+            "Xã Tân Phước": [],
+            "Xã Tân Thành": []
+        };
+
+        // Hàm nạp danh sách Xã vào ô tùy chọn lúc mới mở trang
+        function initDropdowns() {
+            const xaSelect = document.getElementById('xaFilter');
+            for (const xa in locationData) {
+                const option = document.createElement('option');
+                option.value = xa;
+                option.textContent = xa;
+                xaSelect.appendChild(option);
+            }
+        }
+
+        // Hàm bắt sự kiện khi người dùng đổi Xã -> Tự động cập nhật danh sách Ấp tương ứng
+        function handleXaChange() {
+            const xaSelect = document.getElementById('xaFilter');
+            const apSelect = document.getElementById('apFilter');
+            const selectedXa = xaSelect.value;
+            
+            // Luôn xóa danh sách Ấp cũ đi mỗi khi chọn lại Xã
+            apSelect.innerHTML = '<option value="">-- Tất cả Ấp --</option>';
+            
+            // Đẩy dữ liệu Ấp mới vào nếu Xã đó có dữ liệu
+            if (selectedXa && locationData[selectedXa]) {
+                const apList = locationData[selectedXa];
+                apList.forEach(ap => {
+                    const option = document.createElement('option');
+                    option.value = ap;
+                    option.textContent = ap;
+                    apSelect.appendChild(option);
+                });
+            }
+        }
+
         window.onload = async function() {
+            // Nạp dữ liệu bộ lọc Xã ngay khi trang vừa tải
+            initDropdowns();
+
             const countElement = document.getElementById('totalCount');
             const updateTimeElement = document.getElementById('updateTime');
 
@@ -236,8 +319,9 @@
             const rawKeyword = document.getElementById('searchInput').value.trim();
             const resultBox = document.getElementById('resultArea');
             
-            // ĐÃ SỬA: Lấy trạng thái của nút check tìm chính xác
             const isExact = document.getElementById('exactMatch').checked;
+            const xaFilter = document.getElementById('xaFilter').value;
+            const apFilter = document.getElementById('apFilter').value;
 
             if (rawKeyword === "") {
                 alert("Vui lòng nhập thông tin để tra cứu!");
@@ -251,7 +335,13 @@
 
             let queryTraCuu = client.from('tra_cuu').select('*').limit(11);
             
-            // ĐÃ SỬA: Phân nhánh tìm chính xác tuyệt đối hoặc tìm gần đúng
+            if (xaFilter !== "") {
+                queryTraCuu = queryTraCuu.eq('Xã', xaFilter);
+            }
+            if (apFilter !== "") {
+                queryTraCuu = queryTraCuu.eq('Ấp', apFilter);
+            }
+
             if (isExact) {
                 queryTraCuu = queryTraCuu.or(`MA_KHANG.ilike.${safeKeyword},TEN_KHANG.ilike.${safeKeyword}`);
             } else {
